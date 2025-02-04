@@ -1,0 +1,425 @@
+#include <cmath>
+#include <iostream>
+#include <initializer_list>
+#include <memory>
+#include <map>
+#include <stdexcept>
+#include <utility>
+
+template <typename T>
+class Vector
+{
+    // Your implementation of the Vector class starts here
+public:
+    int length;
+    T* data;    
+    // default constructor
+    Vector() : length(0), data(nullptr) {}
+    
+    // copy constructor
+    Vector(const Vector& other) : length(other.length), data(other.length > 0 ? new T[other.length] : nullptr) {
+        if (length > 0) {
+            std::copy(other.data, other.data + length, data);
+        }
+    }
+
+    // move constructor
+    Vector(Vector&& other) noexcept : length(other.length), data(other.data) {
+        other.length = 0;
+        other.data = nullptr;
+    }
+
+    // data initialization
+    Vector(const int length) : length(length), data(length > 0 ? new T[length]() : nullptr) {
+        if (length < 0) {
+            throw std::invalid_argument("Length must be non-negative.");
+        }
+    }
+
+    // data allocation
+    Vector(std::initializer_list<T> l) : length(static_cast<int>(l.size())), data(length > 0 ? new T[length] : nullptr) {
+        if (data) {
+            std::copy(l.begin(), l.end(), data);
+        }
+    }
+
+    // destructor
+    ~Vector(){
+        delete[] data;
+        data = nullptr;
+        length = 0;
+    }
+
+    // copy assignment operator
+    Vector& operator=(const Vector& other) {
+        if (this == &other){
+            return *this;
+        }
+        delete[] data;
+        length = other.length;
+        data = new T[length];
+        std::copy(other.data, other.data + length, data);
+        return *this;
+    }
+
+    // move assignment operator
+    Vector& operator=(Vector&& other) noexcept {
+        if (this == &other){
+            other.length = 0;
+            other.data = nullptr;
+            return *this;
+        }
+        delete[] data;
+        length = other.length;
+        data = other.data;
+        other.length = 0;
+        other.data = nullptr;
+        return *this;
+    }
+
+    // ith reference non-constant operator
+    T& operator[](int i){
+        if (i < 0 || i >= length) {
+        throw std::out_of_range("Index out of range");
+    }
+        return data[i];
+    }
+
+    // ith reference constant operator
+    const T& operator[](int i) const {
+        if (i < 0 || i >= length) {
+        throw std::out_of_range("Index out of range");
+    }
+        return data[i];
+    } 
+
+    // addition operator
+    template<typename U>
+    auto operator+(const Vector<U>& other) const -> Vector<typename std::common_type<T, U>::type> {
+        if (this->length != other.length){
+            throw std::runtime_error("Vectors have different lengths.\n");
+        }
+        using CommonType = typename std::common_type<T, U>::type;
+        Vector<CommonType> result(this->length);
+        for (int i = 0; i < this->length; i++) {
+            result[i] = static_cast<CommonType>(this->data[i]) + static_cast<CommonType>(other.data[i]);
+        }
+        return result;  
+    }
+
+    // subtraction operator
+    template<typename U>
+    auto operator-(const Vector<U>& other) const -> Vector<typename std::common_type<T, U>::type> {
+        if (this->length != other.length){
+            throw std::runtime_error("Vectors have different lengths.\n");
+        }
+        using CommonType = typename std::common_type<T, U>::type;
+        Vector<CommonType> result(this->length);
+        for (int i = 0; i < this->length; i++) {
+            result[i] = static_cast<CommonType>(this->data[i]) - static_cast<CommonType>(other.data[i]);
+        }
+        return result;  
+    }
+
+    // vector * scalar
+    template<typename U>
+    auto operator*(const U& scalar) const -> Vector<typename std::common_type<T, U>::type> {
+        using CommonType = typename std::common_type<T, U>::type;
+        Vector<CommonType> result(this->length);
+        for (int i = 0; i < this->length; i++){
+            result[i] = static_cast<CommonType>(this->data[i]) * static_cast<CommonType>(scalar);
+        }
+        return result;
+    }
+
+    // length function
+    int len() const {
+        return length;
+    }
+};
+
+// scalar * vector
+template <typename T, typename U>
+auto operator*(const U& scalar, const Vector<T>& vec) -> Vector<typename std::common_type<T, U>::type> {
+    using CommonType = typename std::common_type<T, U>::type;
+    Vector<CommonType> result(vec.length);
+    for (int i = 0; i < vec.length; i++) {
+        result[i] = static_cast<CommonType>(scalar) * static_cast<CommonType>(vec.data[i]);
+    }
+    return result;
+}
+
+template<typename T, typename U>
+typename std::common_type<T,U>::type 
+dot(const Vector<T>& lhs, 
+    const Vector<U>& rhs)
+{
+    if (lhs.length != rhs.length){
+        throw std::runtime_error("Vectors have different lengths.\n");
+    }
+    using CommonType = typename std::common_type<T,U>::type;
+    CommonType result = 0;
+    for (int i = 0; i < lhs.length; i++){
+        result += static_cast<CommonType>(lhs[i])*static_cast<CommonType>(rhs[i]);
+    }
+    return result;
+}
+
+template <typename T>
+class Matrix
+{
+    // Start your implementation of the matrix class here
+public:
+    const int n_rows;
+    const int n_cols;
+    std::map<std::pair<int,int>, T> data;
+    // initializing internal data structures
+    Matrix(int a, int b) : n_rows(a), n_cols(b){
+        if (n_rows <= 0 || n_cols <= 0) {
+            throw std::invalid_argument("Matrix dimensions must be positive.\n");
+        }
+    }
+
+    // destructor
+    ~Matrix() = default;
+
+    // non-constant reference access operator
+    T& operator[](const std::pair<int,int>& ij){
+        int i = ij.first;
+        int j = ij.second;
+        if (i < 0 || i >= n_rows || j < 0 || j >= n_cols) {
+            throw std::out_of_range("Matrix indices out of range.\n");
+        }
+        return data[ij];
+    }
+
+    // constant reference access operator
+    const T& operator()(const std::pair<int,int>& ij) const {
+        int i = ij.first;
+        int j = ij.second;
+        if (i < 0 || i >= n_rows || j < 0 || j >= n_cols) {
+            throw std::out_of_range("Matrix indices out of range.\n");
+        }
+        auto it = data.find(ij);
+        if (it == data.end()){
+            throw std::out_of_range("Matrix entry not present.\n");
+        }
+        return it->second;
+    }
+
+    // print overload operator for ease of matrix comparison
+    friend std::ostream& operator<<(std::ostream& os, const Matrix& matrix) {
+        for (int i = 0; i < matrix.n_rows; ++i) {
+            for (int j = 0; j < matrix.n_cols; ++j) {
+                auto it = matrix.data.find({i, j});
+                if (it != matrix.data.end()) {
+                    os << it->second << "\t";
+                } else {
+                    os << " \t";
+                }
+            }
+            os << "\n";
+        }
+        return os;
+    }
+};
+
+// matrix-vector product
+template<typename T, typename U>
+Vector<typename std::common_type<T,U>::type>
+operator*(const Matrix<T>& lhs, 
+          const Vector<U>& rhs)
+{
+    if (lhs.n_cols != rhs.length) {
+        throw std::runtime_error("Dimensions mismatch, number of columns must be equal to vector length.\n");
+    }
+    using CommonType = typename std::common_type<T,U>::type;
+    Vector<CommonType> result(lhs.n_rows);
+    for (auto it = lhs.data.begin(); it != lhs.data.end(); it++){
+        int i = it->first.first;
+        int j = it->first.second;
+        result[i] += static_cast<CommonType>(it->second) * static_cast<CommonType>(rhs[j]);
+    }
+    return result;  
+}
+
+template<typename T>
+int cg(const Matrix<T>& A, 
+       const Vector<T>& b, 
+       Vector<T>&       x, 
+       T                tol     = (T)1e-8, 
+       int              maxiter = 100)
+{
+    // Your implementation of the cg function starts here
+    int n_iter = 0;
+    Vector<T> r_k = b - A*x;
+    Vector<T> p_k = r_k;
+    T alpha, beta;
+    for (int k = 0; k < maxiter; k++) {
+        T r_k_dot = dot(r_k, r_k);
+        Vector<T> Ap_k = A*p_k;
+        T Ap_k_p_k_dot = dot(Ap_k, p_k);
+        alpha = r_k_dot / Ap_k_p_k_dot;
+        x = x + alpha * p_k;
+        Vector<T> r_kk = r_k - alpha*Ap_k;
+        if (dot(r_kk, r_kk) < tol*tol) {
+            return k + 1;
+        }
+        T r_kk_dot = dot(r_kk, r_kk);
+        beta = r_kk_dot / r_k_dot;
+        Vector<T> p_kk = r_kk + beta*p_k;
+        r_k = r_kk;
+        p_k = p_kk;
+        n_iter += 1;
+    }
+    if (n_iter == maxiter) {
+        n_iter = -1;
+    }
+    return n_iter;
+}
+
+template <int n, typename T>
+class Heat
+{
+    // Your implementation of the heat class starts here
+public:
+    Matrix<T> M;
+    T alpha;
+    int m;
+    T dt;
+    T dx;
+    int total_points;
+    // Constructor
+    Heat(T alpha, int m, T dt) : M(std::pow(m, n), std::pow(m, n)), alpha(alpha), m(m), dt(dt), dx(1.0 / (m + 1)), total_points(std::pow(m, n)) {
+    T coeff = -alpha * dt / (dx * dx);
+    int offset = 0;
+    for (int i = 0; i < total_points; i++) {
+        M[{i, i}] = 1;
+        for (int k = 0; k < n; k++) {
+            offset = std::pow(m, k);
+            if ((i - offset) >= 0 && (i / offset) % m != 0) { 
+                M[{i, i - offset}] += coeff;
+            }
+            if ((i + offset) < total_points && (i / offset + 1) % m != 0) { 
+                M[{i, i + offset}] += coeff;
+            }
+            M[{i,i}] -= 2*coeff;
+        }
+    }
+}
+
+    // Return exact solution at time t
+    Vector<T> exact(T t) const {
+        Vector<T> u_exact(total_points);
+        T exp_term = std::exp(-n * M_PI * M_PI * alpha * t);
+        int idx = 0;
+        int coord = 0;
+        T x;
+        for (int i = 0; i < total_points; i++) {
+            T value = 1.0;
+            idx = i;
+            for (int k = 0; k < n; k++) {
+                coord = idx % m;
+                idx /= m;
+                x = (coord + 1) * dx;
+                value *= std::sin(M_PI*x);
+            }
+            u_exact[i] = exp_term*value;
+        }
+        return u_exact;
+    }
+
+    // Return approximate solution at time t
+    Vector<T> solve(T t) const {
+        int n_steps = static_cast<int>(t/dt);
+        Vector<T> u(total_points);
+        u = exact(0);
+        int status = 0;
+        for (int step = 0; step < n_steps; step++) {
+            Vector<T> u_next(total_points);
+            status = cg(M, u, u_next);
+            if (status < 0) {
+                throw std::runtime_error("Conjugate gradient solver did not converge.");
+            }
+            u = u_next;
+        }
+        return u;
+    }
+};
+
+int main(int argc, char* argv[])
+{
+    // Your testing of the Heat class starts here
+
+    // 1D matrix check
+    const int n1d_check = 1;         
+    double alpha1d_check = 0.3125;   
+    int m1d_check = 3;              
+    double dt1d_check = 0.1;       
+
+    Heat<n1d_check, double> heat1d_check(alpha1d_check, m1d_check, dt1d_check);
+    std::cout << "1D Matrix Check:\n" << std::endl;
+    std::cout << heat1d_check.M << "\n" << std::endl;
+
+    // 2D matrix check
+    const int n2d_check = 2;         
+    double alpha2d_check = 0.3125;   
+    int m2d_check = 3;              
+    double dt2d_check = 0.1;       
+
+    Heat<n2d_check, double> heat2d_check(alpha2d_check, m2d_check, dt2d_check);
+    std::cout << "2D Matrix Check:\n" << std::endl;
+    std::cout << heat2d_check.M << "\n" << std::endl;
+
+    // 1D solution
+    const int n1d = 1;         
+    double alpha1d = 0.3125;   
+    int m1d = 99;              
+    double dt1d = 0.001;       
+    double t_final1d = 1.0;    
+
+    Heat<n1d, double> heat1d(alpha1d, m1d, dt1d);
+
+    Vector<double> exact_sol1d = heat1d.exact(t_final1d);
+
+    Vector<double> approx_sol1d = heat1d.solve(t_final1d);
+
+    std::cout << "Exact Solution 1D:\n";
+    for (int i = 0; i < exact_sol1d.len(); ++i) {
+        std::cout << exact_sol1d[i] << " ";
+    }
+    std::cout << "\n\n";
+
+    std::cout << "Numerical Solution 1D:\n";
+    for (int i = 0; i < approx_sol1d.len(); ++i) {
+        std::cout << approx_sol1d[i] << " ";
+    }
+    std::cout << "\n";
+
+    // 2D solution
+    const int n2d = 2;         
+    double alpha2d = 0.3125;   
+    int m2d = 99;              
+    double dt2d = 0.001;       
+    double t_final2d = 0.5;    
+
+    Heat<n2d, double> heat2d(alpha2d, m2d, dt2d);
+
+    Vector<double> exact_sol2d = heat2d.exact(t_final2d);
+
+    Vector<double> approx_sol2d = heat2d.solve(t_final2d);
+
+    std::cout << "\nFirst 10 values of Exact Solution 2D:\n";
+    for (int i = 0; i < 10; ++i) {
+        std::cout << exact_sol2d[i] << " ";
+    }
+    std::cout << "...\n\n";
+
+    std::cout << "First 10 values of Approximate Solution 2D:\n";
+    for (int i = 0; i < 10; ++i) {
+        std::cout << approx_sol2d[i] << " ";
+    }
+    std::cout << "...\n";
+
+    return 0;
+}
